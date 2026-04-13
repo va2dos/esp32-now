@@ -1,28 +1,40 @@
 #include <FastLED.h>
 #include <DFRobotDFPlayerMini.h>
-#include <Wire.h> 
-#include <Adafruit_PN532.h> 
+#include <Wire.h>
+#include <Adafruit_PN532.h>
 #include <esp_now.h>
 #include <WiFi.h>
 
-#include "Pins.h"
-#include "Buttons.h"
-#include "Utils.h"
-#include "EspNowMessage.h"
+#include "utils/utils.h"
 
-Adafruit_PN532 nfc(PN532_SS);
+#include "constants/pins.h"
+
+#include "services/button_service.h"
+#include "services/esp_now_dispatcher_service.h"
+#include "services/track_service.h"
+
+services::ButtonService buttonService;
+services::EspNowDispatcherService espNowService;
+services::TrackService trackService;
+
+Adafruit_PN532 nfc(pins::PN532_SS);
 
 const unsigned long DEBOUNCE_MS = 50;
 const unsigned long MUSIC_MODE_DURATION_MS = 3000;
 
-HardwareSerial mp3Serial(2);  // UART2
+HardwareSerial mp3Serial(2); // UART2
 DFRobotDFPlayerMini dfPlayer;
 // Adafruit_PN532 nfc(Wire);
 
-CRGB leds[NUM_LEDS];
+CRGB leds[pins::NUM_LEDS];
 
-struct Color { uint8_t r; uint8_t g; uint8_t b; };
-Color colors[] = { {255, 248, 184}, {237, 5, 207} };
+struct Color
+{
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+};
+Color colors[] = {{255, 248, 184}, {237, 5, 207}};
 int currentColorIndex = 0;
 
 // Light turning around
@@ -33,19 +45,14 @@ int pos = 0;
 bool musicMode = false;
 unsigned long musicModeStart = 0;
 
-// Esp-Now List of receivers
-uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-esp_now_peer_info_t peerInfo;
-EspNowMessage espNowMessage;
-
-void onSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  Serial.print("Send status: ");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "OK" : "FAIL");
-}
+// Current track info for remote players
+bool remotePlayersTriggered = false;
+services::TrackInfo trackInfo;
 
 // Button handling moved to include/Buttons.h and src/Buttons.cpp
 
-String checkForCard() {
+String checkForCard()
+{
     uint8_t uid[7];
     uint8_t uidLength;
 
@@ -53,75 +60,81 @@ String checkForCard() {
         PN532_MIFARE_ISO14443A,
         uid,
         &uidLength,
-        50   // non-blocking timeout
+        50 // non-blocking timeout
     );
 
-    if (!success) {
-        return "";   // no card detected
+    if (!success)
+    {
+        return ""; // no card detected
     }
 
-    return uidToHexString(uid, uidLength);
+    return utils::uidToHexString(uid, uidLength);
 }
 
-void runChaseAnimation() {
+void runChaseAnimation()
+{
     // Fade all LEDs slightly
-    for (int i = 0; i < NUM_LEDS; i++) {
+    for (int i = 0; i < pins::NUM_LEDS; i++)
+    {
         leds[i].fadeToBlackBy(40);
     }
 
-    Color c = colors[currentColorIndex]; 
+    Color c = colors[currentColorIndex];
     leds[pos].setRGB(c.r, c.g, c.b);
 
     // Update position
     pos++;
 
     // Bounce at edges
-    if (pos >= NUM_LEDS) {
+    if (pos >= pins::NUM_LEDS)
+    {
         pos = 0;
     }
 
     FastLED.show();
 }
 
-void setup() {
+void setup()
+{
     Serial.begin(115200);
 
-    // Set device as a Wi-Fi Station
-    WiFi.mode(WIFI_STA);
+    Serial.println("Starting Controller Firmware...");
 
-    // Init ESP-NOW
-    if (esp_now_init() != ESP_OK) {
-        Serial.println("Error initializing ESP-NOW");
-        return;
-    }
-    
+    // ESP-NOW Setup
+    espNowService.begin();
+
     // NFC Setup
     nfc.begin();
     uint32_t versiondata = nfc.getFirmwareVersion();
-    if (!versiondata) {
+    if (!versiondata)
+    {
         Serial.println("Didn't find PN532 board");
-        while (1); // halt
+        while (1)
+            ; // halt
     }
     Serial.println("Found PN532 with firmware version: ");
     Serial.println((versiondata >> 24) & 0xFF, DEC);
-    nfc.SAMConfig(); 
+    nfc.SAMConfig();
     Serial.println("Waiting for an NFC card...");
 
     // LED Setup
-    FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
+    FastLED.addLeds<WS2812B, pins::LED_PIN, GRB>(leds, pins::NUM_LEDS);
     FastLED.setBrightness(80);
     FastLED.clear();
     FastLED.show();
 
     // Button Setup
-    Buttons_begin();
+    buttonService.begin();
 
     // MP3 Player Setup
-    mp3Serial.begin(9600, SERIAL_8N1, MP3_RX_PIN, MP3_TX_PIN); // RX=16, TX=17
+    mp3Serial.begin(9600, SERIAL_8N1, pins::MP3_RX_PIN, pins::MP3_TX_PIN); // RX=16, TX=17
 
-    if (!dfPlayer.begin(mp3Serial)) {
+    if (!dfPlayer.begin(mp3Serial))
+    {
         Serial.println("DFPlayer Mini not detected!");
-    } else {
+    }
+    else
+    {
         Serial.println("DFPlayer Mini ready.");
         // Prewarm to avoid pop sound
         dfPlayer.volume(0);
@@ -131,74 +144,96 @@ void setup() {
         dfPlayer.volume(20); // Volume range: 0–30
     }
 
-    // Esp-Now Register peer
-    espNowMessage.id = 0;
-    esp_now_register_send_cb(esp_now_send_cb_t(OnDataSent));
-    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-    peerInfo.channel = 0;  
-    peerInfo.encrypt = false;
-   
-    //Add peer
-    if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
-    } 
-
     Serial.print("Setup complete.");
 }
 
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-    Serial.print("\r\nLast Packet Send Status:\t");
-    Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
-}
+void loop()
+{
 
-void sendEspNowMessage(const char* message) {
-    strcpy(espNowMessage.text, message);
-    espNowMessage.id ++;  // Increment ID for each message  
-    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t*)&espNowMessage, sizeof(espNowMessage));
-    if (result == ESP_OK) {
-        Serial.println("Sent with success");
-    } else {
-        Serial.println("Error sending the data");
-    }
-}
-
-void loop() {
-    if (Buttons_wasPressed(BTN_ON_OFF)) {
+    if (buttonService.wasPressed(services::ButtonIndex::BTN_ON_OFF))
+    {
         Serial.println("Mode button pressed, lightsOn toggled");
         lightsOn = !lightsOn;
-        if (!lightsOn) {
+        if (!lightsOn)
+        {
             dfPlayer.stop();
             FastLED.clear();
             FastLED.show();
         }
+        espNowService.broadcast("STOP");
     }
 
-    String uid = checkForCard(); 
-    if (uid.length() > 0) {
-        Serial.print("Detected UID: "); 
+    String uid = checkForCard();
+    if (uid.length() > 0)
+    {
+        Serial.print("Detected UID: ");
         Serial.println(uid);
 
-        if(lightsOn && !musicMode) {
+        if (lightsOn && !musicMode && !remotePlayersTriggered)
+        {
             musicMode = true;
             musicModeStart = millis();
-            dfPlayer.play(1);  // Play track 1
+            dfPlayer.play(1); // Play track 1
+            espNowService.broadcast("STOP");
+        }
+        else if (!lightsOn)
+        {
+            Serial.println("Card detected but lights are off, ignoring.");
+        }
+        else if (musicMode)
+        {
+            Serial.println("Card detected but already in music mode, ignoring.");
+        }
+        else if (remotePlayersTriggered)
+        {
+            Serial.println("Card detected but remote players are active, ignoring.");
         }
     }
 
-    if (lightsOn) {
+    if (lightsOn)
+    {
         currentColorIndex = 0;
-        if(musicMode) {
-            if (millis() - musicModeStart >= MUSIC_MODE_DURATION_MS) { 
+        if (musicMode)
+        {
+            if (millis() - musicModeStart >= MUSIC_MODE_DURATION_MS)
+            {
                 musicMode = false;
                 dfPlayer.stop();
-                sendEspNowMessage("PLAY-01-01");
-            } else {
+
+                // Trigger remote players to play the track
+                services::TrackParseError trackResult = trackService.parsePlayCommand("PLAY-02-001", trackInfo);
+                if (trackResult == services::TrackParseError::None)
+                {
+                    char cmd[16];
+                    trackService.buildPlayCommand(cmd, trackInfo.folder, trackInfo.file);
+                    espNowService.broadcast(cmd);
+
+                    Serial.println("Starting remote track.");
+                    remotePlayersTriggered = true;
+                    musicModeStart = millis();
+                }
+                else
+                {
+                    Serial.println("Parsed track command, result: " + String(static_cast<int>(trackResult)));
+                }
+            }
+            else
+            {
                 currentColorIndex = 1;
             }
         }
         runChaseAnimation();
     }
 
+    if (remotePlayersTriggered && millis() - musicModeStart >= trackInfo.duration * 1000UL)
+    {
+        remotePlayersTriggered = false;
+        trackInfo = {0}; // reset track info
+        Serial.println("Remote track ended, resetting state.");
+    }
+
+    espNowService.loop();
+
+    // Small delay to avoid overwhelming the loop
     delay(20);
 }
