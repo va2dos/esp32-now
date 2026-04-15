@@ -65,7 +65,7 @@ void loop()
     {
         Serial.println("Mode button pressed, lightsOn toggled");
         bool newState = !lightningModule.isLightsOn();
-        lightningModule.setLightsOn(newState);
+        lightningModule.setLightsOn(newState, module::LightningModule::ColorIndex::White);
         if (!newState)
         {
             soundController.stop();
@@ -85,6 +85,7 @@ void loop()
             musicModeStart = millis();
             soundController.playTrack(1); // Play track 1
             espNowService.broadcast("STOP");
+            lightningModule.setLightsOn(musicMode, module::LightningModule::ColorIndex::Purple);
         }
         else if (!lightningModule.isLightsOn())
         {
@@ -101,14 +102,15 @@ void loop()
     }
 
     if (lightningModule.isLightsOn())
-    {
-        lightningModule.setMusicMode(false);
+    {        
         if (musicMode)
         {
             if (millis() - musicModeStart >= MUSIC_MODE_DURATION_MS)
             {
                 musicMode = false;
                 soundController.stop();
+                // When music mode ends, we want to keep the lights on but switch back to white
+                lightningModule.setLightsOn(musicMode, module::LightningModule::ColorIndex::White);
 
                 // Trigger remote players to play the track
                 services::TrackParseError trackResult = trackService.parsePlayCommand("PLAY-02-001", trackInfo);
@@ -126,11 +128,7 @@ void loop()
                 {
                     Serial.println("Parsed track command, result: " + String(static_cast<int>(trackResult)));
                 }
-            }
-            else
-            {
-                lightningModule.setMusicMode(true);
-            }
+            }            
         }
         lightningModule.runChaseAnimation();
     }
@@ -140,6 +138,7 @@ void loop()
         remotePlayersTriggered = false;
         trackInfo = {0}; // reset track info
         Serial.println("Remote track ended, resetting state.");
+        lightningModule.setLightsOn(musicMode, module::LightningModule::ColorIndex::White);
     }
 
     espNowService.loop();

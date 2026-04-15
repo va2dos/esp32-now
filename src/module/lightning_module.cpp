@@ -9,11 +9,13 @@ void LightningModule::begin() {
     FastLED.show();
 }
 
-void LightningModule::setLightsOn(bool on) {
+void LightningModule::setLightsOn(bool on, ColorIndex color) {
     lightsOn = on;
+    currentColorIndex = static_cast<int>(color);
     if (!lightsOn) {
         FastLED.clear();
         FastLED.show();
+        pos = 0; // Reset position when turning off
     }
 }
 
@@ -37,14 +39,6 @@ void LightningModule::runChaseAnimation() {
     }
 
     FastLED.show();
-}
-
-void LightningModule::setMusicMode(bool mode) {
-    if (mode) {
-        currentColorIndex = 1;
-    } else {
-        currentColorIndex = 0;
-    }
 }
 
 } // namespace module
