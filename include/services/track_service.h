@@ -10,7 +10,7 @@ namespace services
     {
         uint8_t folder;
         uint8_t file;
-        uint32_t duration;
+        double duration;
         const char *name;
     };
 
@@ -33,7 +33,7 @@ namespace services
         {2, 3, 61, "Gadget"},
         {2, 4, 61, "Jack"},
         {3, 1, 01, "Mario coin"},
-    };
+        {4, 1, 03, "Magic Band scanned"}};
 
     class TrackService
     {

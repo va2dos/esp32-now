@@ -22,6 +22,12 @@ namespace module
         Serial.println("Waiting for an NFC card...");
     }
 
+    void CardModule::loop(){
+        auto uidString = checkForCard();
+        if (uidString != "" && onCardDetected)
+            onCardDetected(uidString);
+    }
+
     String CardModule::checkForCard()
     {
         uint8_t uid[7];
@@ -37,7 +43,7 @@ namespace module
         if (!success)
         {
             return ""; // no card detected
-        }
+        }        
 
         return utils::uidToHexString(uid, uidLength);
     }

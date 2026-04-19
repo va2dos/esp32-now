@@ -18,13 +18,15 @@ namespace services
         bool state;       // stable debounced state
         bool lastReading; // last raw reading
         unsigned long lastDebounce;
+        bool toggleState; // current on/off state for the toggle button
     };
 
     class ButtonService
     {
     public:
         void begin();
-        bool wasPressed(uint8_t index);
+        void loop();
+        bool isOn(uint8_t index);
 
     private:
         bool updateButtonInternal(int index);

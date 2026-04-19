@@ -12,14 +12,17 @@ void LightningModule::begin() {
 void LightningModule::setLightsOn(bool on, ColorIndex color) {
     lightsOn = on;
     currentColorIndex = static_cast<int>(color);
-    if (!lightsOn) {
-        FastLED.clear();
-        FastLED.show();
-        pos = 0; // Reset position when turning off
-    }
+    configUpdated = true;
 }
 
-void LightningModule::runChaseAnimation() {
+void LightningModule::loop() {
+    if (configUpdated) {
+        FastLED.clear();
+        pos = 0; 
+        FastLED.show();
+        configUpdated = false;
+    }
+
     if (!lightsOn) return;
 
     // Fade all LEDs slightly

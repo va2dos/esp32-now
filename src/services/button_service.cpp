@@ -7,7 +7,7 @@ namespace services
     static const unsigned long DEBOUNCE_MS = 50;
 
     static Button buttons[BUTTON_COUNT] = {
-        {pins::ONOFF_BUTTON_PIN, HIGH, HIGH, 0}};
+        {pins::ONOFF_BUTTON_PIN, HIGH, HIGH, 0, false}};
 
     void ButtonService::begin()
     {
@@ -19,11 +19,22 @@ namespace services
         }
     }
 
-    bool ButtonService::wasPressed(uint8_t index)
+    void ButtonService::loop()
+    {
+        for (int i = 0; i < BUTTON_COUNT; i++)
+        {            
+            if (updateButtonInternal(i))
+            {
+                buttons[i].toggleState = !buttons[i].toggleState;
+            }
+        }
+    }
+
+    bool ButtonService::isOn(uint8_t index)
     {
         if (index >= BUTTON_COUNT)
             return false;
-        return updateButtonInternal(index);
+        return buttons[index].toggleState;
     }
 
     bool ButtonService::updateButtonInternal(int index)
