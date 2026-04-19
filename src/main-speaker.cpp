@@ -19,6 +19,8 @@ services::StateController stateController;
 // Current track info for players
 services::TrackInfo trackInfo;
 
+std::optional<services::EspNowMessage> incomingMsg; // Buffer for incoming ESP-NOW messages
+
 void handleEspNowMessage(const services::EspNowMessage &msg)
 {
     Serial.println("Entering handleEspNowMessage...");
@@ -29,41 +31,9 @@ void handleEspNowMessage(const services::EspNowMessage &msg)
         return;
     }
 
-    // Example: interpret msg.text as a command
-    if (strcmp(msg.text, esp_commands::STOP_COMMAND) == 0)
-    {
-        Serial.println("Received STOP command");
-        stateController.setState(services::SystemState::Idle);
-    }
-    else if (strncmp(msg.text, esp_commands::PLAY_COMMAND, 5) == 0)
-    {
-        Serial.print("Received PLAY command: ");
-        Serial.println(msg.text);
-
-        services::TrackParseError trackResult = trackService.parsePlayCommand(msg.text, trackInfo);
-        if (trackResult == services::TrackParseError::None)
-        {
-            Serial.print("Playing track from command: ");
-            Serial.print("Folder: ");
-            Serial.print(trackInfo.folder);
-            Serial.print(", File: ");
-            Serial.print(trackInfo.file);
-            Serial.print(", Duration: ");
-            Serial.print(trackInfo.duration);
-            Serial.print("s, Name: ");
-            Serial.println(trackInfo.name);
-
-            stateController.setState(services::SystemState::Playing);
-        }
-        else
-        {
-            Serial.println("Parsed track command, result: " + String(static_cast<int>(trackResult) + " for " + String(msg.text)));
-        }
-    }
-    else
-    {
-        Serial.println("Unknown command: " + String(msg.text));
-    }
+    Serial.print("Received ESP-NOW message: ");
+    Serial.println(msg.text);
+    incomingMsg = msg; // Store the incoming message for processing in the main loop if needed
 }
 
 void setup()
@@ -104,17 +74,15 @@ void setup()
     {
         Serial.println("State -> Playing");
         lightningModule.setLightsOn(true);
+
+        Serial.print("Track info -> Folder:");                
+        Serial.print(trackInfo.folder);
+        Serial.print(", File: ");
+        Serial.print(trackInfo.file);
         soundController.playTrack(trackInfo.folder, trackInfo.file);
     };
 
-    stateController.onOffEnter = []()
-    {
-        Serial.println("State -> Off");
-        soundController.stop();
-        lightningModule.setLightsOn(false);
-    };
-
-    stateController.setState(services::SystemState::Off);
+    stateController.setState(services::SystemState::Idle);
 
     Serial.print("Setup complete.");
 }
@@ -131,6 +99,47 @@ void loop()
             Serial.println("Track duration ended, stopping music and resetting state.");
             trackInfo = {}; // Clear track info
             stateController.setState(services::SystemState::Idle);
+        }
+    }
+
+    if (incomingMsg.has_value())
+    {
+        auto message = incomingMsg.value().text;
+        Serial.println("Processing message: " + String(message));
+
+        incomingMsg.reset(); // Clear the message after processing
+
+        if (strcmp(message, esp_commands::STOP_COMMAND) == 0)
+        {
+            Serial.println("STOP command : set state to Idle");
+            stateController.setState(services::SystemState::Idle);
+        }
+        else if (strncmp(message, esp_commands::PLAY_COMMAND, 4) == 0)
+        {
+            Serial.print("PLAY command : parsing track info");
+
+            services::TrackParseError trackResult = trackService.parsePlayCommand(message, trackInfo);
+            if (trackResult == services::TrackParseError::None)
+            {
+                Serial.print("Track info -> Folder:");                
+                Serial.print(trackInfo.folder);
+                Serial.print(", File: ");
+                Serial.print(trackInfo.file);
+                Serial.print(", Duration: ");
+                Serial.print(trackInfo.duration);
+                Serial.print("s, Name: ");
+                Serial.println(trackInfo.name);
+
+                stateController.setState(services::SystemState::Playing);
+            }
+            else
+            {
+                Serial.println("Parsed track command, result: " + String(static_cast<int>(trackResult) + " for " + String(message)));
+            }
+        }
+        else
+        {
+            Serial.println("Unknown command: " + String(message));
         }
     }
 

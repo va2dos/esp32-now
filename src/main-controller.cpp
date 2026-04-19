@@ -6,6 +6,7 @@
 #include "services/esp_now_dispatcher_service.h"
 #include "services/track_service.h"
 #include "services/state_controller.h"
+#include "services/scenario_service.h"
 
 module::LightningModule lightningModule;
 module::SoundModule soundController;
@@ -15,9 +16,11 @@ services::ButtonService buttonService;
 services::EspNowDispatcherService espNowService;
 services::TrackService trackService;
 services::StateController stateController;
+services::ScenarioService scenarioService;
 
 // Current track info for players, used to determine duration
 services::TrackInfo trackInfo;
+services::ScenarioType currentScenario = services::ScenarioType::None;
 
 void setup()
 {
@@ -27,6 +30,9 @@ void setup()
 
     // ESP-NOW Setup
     espNowService.begin();
+
+    // Scenario Service Setup
+    scenarioService.init(&trackService, &espNowService);
 
     // LED Setup
     lightningModule.begin();
@@ -39,11 +45,12 @@ void setup()
 
     cardModule.onCardDetected = [](const String &uid)
     {
-        Serial.print("cardModule > onCardDetected");        
+        Serial.print("cardModule > onCardDetected");
         if (stateController.getState() == services::SystemState::Idle)
         {
-            // TODO Pick scenarios based on UID, for now we just trigger music mode for any card
-            trackService.parsePlayCommand("PLAY-04-001", trackInfo);
+            // Map UID to scenario
+            currentScenario = scenarioService.mapUidToScenario(uid);
+            Serial.printf("Mapped UID %s to scenario %d\n", uid.c_str(), static_cast<int>(currentScenario));
 
             stateController.setState(services::SystemState::RfidDetected);
         }
@@ -79,11 +86,16 @@ void setup()
         // Stop Playing locally
         soundController.stop();
 
-        // Trigger remote players
-        char cmd[16];
-        trackService.buildPlayCommand(cmd, trackInfo.folder, trackInfo.file);
-        espNowService.broadcast(cmd);
-        lightningModule.setLightsOn(true, module::LightningModule::ColorIndex::RemotePlay);
+        // Execute scenario on remote players
+        if (currentScenario != services::ScenarioType::None)
+        {
+            scenarioService.executeScenario(currentScenario);
+            lightningModule.setLightsOn(true, module::LightningModule::ColorIndex::RemotePlay);
+        }
+        else
+        {
+            stateController.setState(services::SystemState::Cooldown);
+        }
     };
 
     stateController.onCooldownEnter = []()
@@ -103,7 +115,6 @@ void setup()
 
 void loop()
 {
-
     espNowService.loop();
     buttonService.loop();
     lightningModule.loop();
@@ -130,26 +141,23 @@ void loop()
     }
 
     cardModule.loop();
+    scenarioService.loop();
 
     if (stateController.getState() == services::SystemState::Playing)
     {
         if (stateController.getElapsedTime() >= trackInfo.duration)
         {
-
-            // TODO Randomize track selection based on scenario
-            trackService.parsePlayCommand("PLAY-02-001", trackInfo);
-
             stateController.setState(services::SystemState::RemotePlaying);
         }
     }
 
     if (stateController.getState() == services::SystemState::RemotePlaying)
     {
-        if (stateController.getElapsedTime() >= trackInfo.duration)
+        if (scenarioService.isScenarioComplete())
         {
             stateController.setState(services::SystemState::Cooldown);
         }
-    }   
+    }
 
     // Small delay to avoid overwhelming the loop
     delay(20);

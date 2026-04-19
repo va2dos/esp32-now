@@ -41,4 +41,28 @@ namespace services
         sprintf(out, "PLAY-%02u-%03u", folder, file);
     }
 
+    int TrackService::getTrackCount(int folder) const
+    {
+        int count = 0;
+        for (const auto &track : TRACKS_REFS)
+        {
+            if (track.folder == folder)
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    double TrackService::getTrackDurationMilliseconds(int folder, int file) const
+    {
+        for (const auto &track : TRACKS_REFS)
+        {
+            if (track.folder == folder && track.file == file)
+            {
+                return track.duration * 1000.0; // Convert to milliseconds
+            }
+        }
+        return 0.0; // Not found
+    }
 }

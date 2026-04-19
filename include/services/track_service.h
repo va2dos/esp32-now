@@ -40,5 +40,7 @@ namespace services
     public:
         TrackParseError parsePlayCommand(const char *cmd, TrackInfo &trackInfo) const;
         void buildPlayCommand(char *out, uint8_t folder, uint8_t file) const;
+        int getTrackCount(int folder) const;
+        double getTrackDurationMilliseconds(int folder, int file) const;
     };
 }
