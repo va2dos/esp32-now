@@ -8,7 +8,7 @@ namespace services
     struct ClientInfo
     {
         uint8_t mac[6];
-        unsigned long lastSeen;
+        double lastSeen;
     };
 
     class EspNowDispatcherService : public EspNowService

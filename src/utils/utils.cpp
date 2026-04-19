@@ -1,5 +1,5 @@
+#include <chrono>
 #include "utils/utils.h"
-
 namespace utils
 {
 
@@ -24,5 +24,12 @@ namespace utils
                  mac[0], mac[1], mac[2],
                  mac[3], mac[4], mac[5]);
         return String(buf);
+    }
+
+    double now_ms()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+                   std::chrono::system_clock::now().time_since_epoch())
+            .count();
     }
 }

@@ -1,7 +1,7 @@
 #pragma once
 
+#include <functional>
 #include "esp_now_service.h"
-
 namespace services
 {
 
@@ -13,21 +13,18 @@ namespace services
         EspNowClientService();
 
         bool begin() override;
-        void loop() override;
-
-        void sendAnnouncement();
+        void loop() override;      
 
         // Allows external code to register a callback for incoming messages
-        void onMessage(ClientMessageCallback cb);
+        std::function<void(const EspNowMessage &)> onMessage;
 
     protected:
         void handleMessage(const uint8_t *mac, const EspNowMessage &msg) override;
+        void sendAnnouncement();
 
-    private:
-        unsigned long lastAnnounce;
+    private:        
         static const unsigned long ANNOUNCE_INTERVAL = 3000; // ms
 
-        ClientMessageCallback callback = nullptr;
     };
 
 }

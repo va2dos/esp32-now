@@ -1,6 +1,7 @@
 #include <esp_random.h>
 
 #include "constants/pins.h"
+#include "utils/utils.h"
 
 #include "module/sound_module.h"
 #include "module/lightning_module.h"
@@ -30,20 +31,20 @@ void loop() {
 
     if(!musicMode) {
         musicMode = true;
-        musicModeStart = millis();
+        musicModeStart = utils::now_ms();
         int randomNum = (esp_random() % 6) + 1;
 
         Serial.println("Random number: " + String(randomNum));
         soundController.playTrack(1, randomNum);
         lightningModule.setLightsOn(musicMode);
     } 
-    else if (millis() - musicModeStart >= MUSIC_MODE_DURATION_MS) {
+    else if (utils::now_ms() - musicModeStart >= MUSIC_MODE_DURATION_MS) {
         musicMode = false;
         soundController.stop();
         lightningModule.setLightsOn(musicMode);
     }
 
-    lightningModule.runChaseAnimation();
+    lightningModule.loop();
 
     delay(20);
 }

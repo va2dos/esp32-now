@@ -2,6 +2,8 @@
 #include <functional>
 #include <chrono>
 
+#include "utils/utils.h"
+
 namespace services
 {
     enum class SystemState
@@ -37,10 +39,9 @@ namespace services
     private:
         SystemState state;
 
-        // For timing state durations, if needed
-        using clock = std::chrono::steady_clock;
-        clock::time_point stateStartTime;
-        void resetStateTimer() { stateStartTime = clock::now(); }
+        // For timing state durations, if needed        
+        double stateStartTime;
+        void resetStateTimer() { stateStartTime = utils::now_ms(); }
 
         // Handle actions on state entry
         void onEnter(SystemState s);

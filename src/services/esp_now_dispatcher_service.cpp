@@ -1,3 +1,4 @@
+#include "utils/utils.h"
 #include "services/esp_now_dispatcher_service.h"
 
 namespace services
@@ -47,7 +48,7 @@ namespace services
         if (esp_now_add_peer(&peer) == ESP_OK)
         {
             memcpy(clients[clientCount].mac, mac, 6);
-            clients[clientCount].lastSeen = millis();
+            clients[clientCount].lastSeen = utils::now_ms();
             clientCount++;
 
             Serial.print("Dispatcher registered client: ");
@@ -70,13 +71,13 @@ namespace services
         int idx = findClientIndex(mac);
         if (idx >= 0)
         {
-            clients[idx].lastSeen = millis();
+            clients[idx].lastSeen = utils::now_ms();
         }
     }
 
     void EspNowDispatcherService::pruneStale()
     {
-        unsigned long now = millis();
+        double now = utils::now_ms();
         int i = 0;
         while (i < clientCount)
         {

@@ -1,4 +1,5 @@
 #include "constants/pins.h"
+#include "utils/utils.h"
 #include "services/button_service.h"
 
 namespace services
@@ -44,10 +45,10 @@ namespace services
 
         if (reading != b.lastReading)
         {
-            b.lastDebounce = millis();
+            b.lastDebounce = utils::now_ms();
         }
 
-        if (millis() - b.lastDebounce > DEBOUNCE_MS)
+        if (utils::now_ms() - b.lastDebounce > DEBOUNCE_MS)
         {
             if (reading != b.state)
             {

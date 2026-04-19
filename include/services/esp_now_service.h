@@ -1,7 +1,10 @@
 #pragma once
 
+#include <chrono>
 #include <esp_now.h>
 #include <WiFi.h>
+
+#include "utils/utils.h"
 
 namespace services
 {
@@ -31,6 +34,11 @@ namespace services
     protected:
         virtual void handleMessage(const uint8_t *mac, const EspNowMessage &msg) = 0;
         void sendRaw(const uint8_t *mac, const EspNowMessage &msg);
+
+        // For timing state durations, if needed
+        double startTime = 0;
+        void resetTimer() { startTime = utils::now_ms(); }        
+        double getElapsedTime() const { return utils::now_ms() - startTime; }
 
     private:
         static void onReceiveStatic(const uint8_t *mac, const uint8_t *data, int len);

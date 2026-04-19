@@ -32,8 +32,8 @@ namespace services
 
     double StateController::getElapsedTime() const
     {
-        return std::chrono::duration<double>(clock::now() - stateStartTime).count();
-    }   
+        return (utils::now_ms() - stateStartTime) / 1000.0; // Return seconds
+    }
 
     // ------------------------------------------------------------
     // Internal helpers

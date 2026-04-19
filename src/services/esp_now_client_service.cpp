@@ -2,8 +2,7 @@
 
 namespace services
 {
-    EspNowClientService::EspNowClientService()
-        : lastAnnounce(0) {}
+    EspNowClientService::EspNowClientService(){}
 
     // Main controller 00:4B:12:F2:44:14
     uint8_t controllerMAC[] = {0x00, 0x4B, 0x12, 0xF2, 0x44, 0x14};
@@ -26,28 +25,22 @@ namespace services
             Serial.println("Failed to add dispatcher peer");
             return false;
         }
+        
+        sendAnnouncement();
 
-        lastAnnounce = 0;
         return true;
     }
 
     void EspNowClientService::loop()
     {
-        unsigned long now = millis();
-        if (now - lastAnnounce >= ANNOUNCE_INTERVAL)
-        {
-            sendAnnouncement();
-            lastAnnounce = now;
-        }
-    }
-
-    void EspNowClientService::onMessage(ClientMessageCallback cb)
-    {
-        callback = cb;
+        sendAnnouncement();
     }
 
     void EspNowClientService::sendAnnouncement()
     {
+        if(getElapsedTime() < ANNOUNCE_INTERVAL)
+            return;
+
         EspNowMessage msg{};
         msg.msgType = MSG_ANNOUNCE;
         memcpy(msg.mac, controllerMAC, 6);
@@ -57,7 +50,7 @@ namespace services
 
         sendRaw(controllerMAC, msg);
 
-        // Serial.println("Client sent ANNOUNCE");
+        resetTimer();
     }
 
     void EspNowClientService::handleMessage(const uint8_t *mac, const EspNowMessage &msg)
@@ -68,9 +61,9 @@ namespace services
         Serial.print("Client received MSG_DATA from dispatcher: ");
         Serial.println(msg.text);
 
-        if (callback)
+        if (onMessage)
         {
-            callback(msg);
+            onMessage(msg);
         }
     }
 }

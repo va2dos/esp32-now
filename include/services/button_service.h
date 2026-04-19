@@ -17,7 +17,7 @@ namespace services
         uint8_t pin;
         bool state;       // stable debounced state
         bool lastReading; // last raw reading
-        unsigned long lastDebounce;
+        double lastDebounce;
         bool toggleState; // current on/off state for the toggle button
     };
 

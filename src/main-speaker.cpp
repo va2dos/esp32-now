@@ -1,30 +1,21 @@
-#include <esp_random.h>
-#include <esp_now.h>
-#include <WiFi.h>
+#include "constants/esp_commands.h"
 
-#include "constants/pins.h"
-#include "constants/tracks.h"
+#include "utils/utils.h"
 
 #include "module/sound_module.h"
 #include "module/lightning_module.h"
 
-#include "services/esp_now_service.h"
 #include "services/esp_now_client_service.h"
 #include "services/track_service.h"
-#include "utils/utils.h"
+#include "services/state_controller.h"
 
 services::EspNowClientService espNowService;
 module::LightningModule lightningModule;
 module::SoundModule soundController;
 services::TrackService trackService;
+services::StateController stateController;
 
-const unsigned long DEBOUNCE_MS = 50;
-const unsigned long MUSIC_MODE_DURATION_MS = 120000;
-
-// Setup for DFPlayer Mini
-bool musicMode = false;
-bool musicReady = false;
-unsigned long musicModeStart = 0;
+// Current track info for players
 services::TrackInfo trackInfo;
 
 void handleEspNowMessage(const services::EspNowMessage &msg)
@@ -38,14 +29,12 @@ void handleEspNowMessage(const services::EspNowMessage &msg)
     }
 
     // Example: interpret msg.text as a command
-    if (strcmp(msg.text, tracks::STOP_COMMAND) == 0)
+    if (strcmp(msg.text, esp_commands::STOP_COMMAND) == 0)
     {
-        musicMode = false;
-        musicReady = false;
-        soundController.stop();
         Serial.println("Received STOP command");
+        stateController.setState(services::SystemState::Idle);
     }
-    else if (strncmp(msg.text, "PLAY-", 5) == 0)
+    else if (strncmp(msg.text, esp_commands::PLAY_COMMAND, 5) == 0)
     {
         Serial.print("Received PLAY command: ");
         Serial.println(msg.text);
@@ -63,16 +52,16 @@ void handleEspNowMessage(const services::EspNowMessage &msg)
             Serial.print("s, Name: ");
             Serial.println(trackInfo.name);
 
-            musicReady = true;
+            stateController.setState(services::SystemState::Playing);
         }
         else
         {
-            Serial.println("Parsed track command, result: " + String(static_cast<int>(trackResult)));
+            Serial.println("Parsed track command, result: " + String(static_cast<int>(trackResult) + " for " + String(msg.text)));
         }
     }
     else
     {
-        Serial.println("Unknown command");
+        Serial.println("Unknown command: " + String(msg.text));
     }
 }
 
@@ -97,35 +86,52 @@ void setup()
     }
 
     // Register callback
-    espNowService.onMessage([](const services::EspNowMessage &msg)
-                            { handleEspNowMessage(msg); });
+    espNowService.onMessage = [](const services::EspNowMessage &msg)
+    {
+        handleEspNowMessage(msg);
+    };
+
+    // State Controller Setup
+    stateController.onIdleEnter = []()
+    {
+        Serial.println("State -> Idle");
+        soundController.stop();
+        lightningModule.setLightsOn(false);
+    };
+
+    stateController.onPlayingEnter = []()
+    {
+        Serial.println("State -> Playing");
+        lightningModule.setLightsOn(true);
+        soundController.playTrack(trackInfo.folder, trackInfo.file);
+    };
+
+    stateController.onOffEnter = []()
+    {
+        Serial.println("State -> Off");
+        soundController.stop();
+        lightningModule.setLightsOn(false);
+    };
+
+    stateController.setState(services::SystemState::Off);
 
     Serial.print("Setup complete.");
 }
 
 void loop()
 {
-    if(musicReady)
-    {        
-        Serial.printf("Playing folder=%u file=%u\n", trackInfo.folder, trackInfo.file);
-        soundController.playTrack(trackInfo.folder, trackInfo.file);
-        musicMode = true;
-        musicModeStart = millis();
-        musicReady = false;
-        lightningModule.setLightsOn(musicMode);
-    }
-    else if (musicMode && (millis() - musicModeStart) >= ((trackInfo.duration + 1) * 1000UL))
-    {
-        Serial.println("Track duration ended, stopping music and resetting state.");
-        musicMode = false;
-        soundController.stop();
-        trackInfo = {}; // Clear track info
-        lightningModule.setLightsOn(musicMode);
-    }
-
-    lightningModule.runChaseAnimation();
-    
     espNowService.loop();
+    lightningModule.loop();
+
+    if (stateController.getState() == services::SystemState::Playing)
+    {
+        if (stateController.getElapsedTime() >= trackInfo.duration)
+        {
+            Serial.println("Track duration ended, stopping music and resetting state.");
+            trackInfo = {}; // Clear track info
+            stateController.setState(services::SystemState::Idle);
+        }
+    }
 
     delay(50);
 }
