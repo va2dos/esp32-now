@@ -104,7 +104,7 @@ namespace services
         espNowService->sendTo(clientMac, currentConfig.cmd);
         currentConfig.lastClientPlayStartTime = utils::now_ms();
     }
-3
+
     void ScenarioService::executeScenario2()
     {
         // Play sounds from folder 2, one per client (max 4 clients, 4 tracks)
