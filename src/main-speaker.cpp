@@ -9,9 +9,10 @@
 #include "services/track_service.h"
 #include "services/state_controller.h"
 
-services::EspNowClientService espNowService;
 module::LightningModule lightningModule;
 module::SoundModule soundController;
+
+services::EspNowClientService espNowService;
 services::TrackService trackService;
 services::StateController stateController;
 

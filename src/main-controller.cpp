@@ -39,8 +39,7 @@ void setup()
 
     cardModule.onCardDetected = [](const String &uid)
     {
-        Serial.print("Detected UID: ");
-        Serial.println(uid);
+        Serial.print("cardModule > onCardDetected");        
         if (stateController.getState() == services::SystemState::Idle)
         {
             // TODO Pick scenarios based on UID, for now we just trigger music mode for any card

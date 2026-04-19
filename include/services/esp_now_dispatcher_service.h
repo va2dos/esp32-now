@@ -22,6 +22,9 @@ namespace services
         void broadcast(const char *text);
         void sendTo(const uint8_t *mac, const char *text);
 
+        int countClient() const;
+        uint8_t* getClientAtIndex(int index);
+
     protected:
         void handleMessage(const uint8_t *mac, const EspNowMessage &msg) override;
 

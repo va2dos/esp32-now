@@ -135,6 +135,18 @@ namespace services
         Serial.println(text);
     }
 
+    int EspNowDispatcherService::countClient() const
+    {
+        return clientCount;
+    }
+        
+    uint8_t* EspNowDispatcherService::getClientAtIndex(int index)
+    {
+        return clients[index].mac;
+    }
+
+    // Protected
+
     void EspNowDispatcherService::handleMessage(const uint8_t *mac, const EspNowMessage &msg)
     {
         if (msg.msgType == MSG_ANNOUNCE)
