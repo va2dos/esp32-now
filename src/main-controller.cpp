@@ -40,6 +40,9 @@ void setup()
     // Button Setup
     buttonService.begin();
 
+    // Music play when rfid detected.
+    trackService.parsePlayCommand("PLAY-4-1", trackInfo);
+
     // Card Setup
     cardModule.begin();
 
@@ -94,6 +97,7 @@ void setup()
         }
         else
         {
+            Serial.println("No scenario mapped for this card, skipping remote play.");
             stateController.setState(services::SystemState::Cooldown);
         }
     };
@@ -102,7 +106,6 @@ void setup()
     {
         Serial.println("Remote track ended, resetting state.");
 
-        trackInfo = {}; // reset track info
         espNowService.broadcast("STOP");
         lightningModule.setLightsOn(false, module::LightningModule::ColorIndex::White);
         stateController.setState(services::SystemState::Idle);
