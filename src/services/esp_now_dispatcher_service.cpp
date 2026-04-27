@@ -32,13 +32,13 @@ namespace services
         return -1;
     }
 
-    void EspNowDispatcherService::addClient(const uint8_t *mac)
+    bool EspNowDispatcherService::addClient(const uint8_t *mac)
     {
         if (clientCount >= MAX_CLIENTS)
-            return;
+            return false;
 
         if (findClientIndex(mac) != -1)
-            return;
+            return false;
 
         esp_now_peer_info_t peer{};
         memcpy(peer.peer_addr, mac, 6);
@@ -59,11 +59,11 @@ namespace services
                     Serial.print(":");
             }
             Serial.println();
+            return true;
         }
-        else
-        {
-            Serial.println("Failed to add peer");
-        }
+
+        Serial.println("Failed to add peer");
+        return false;
     }
 
     void EspNowDispatcherService::updateLastSeen(const uint8_t *mac)
@@ -139,8 +139,8 @@ namespace services
     {
         return clientCount;
     }
-        
-    uint8_t* EspNowDispatcherService::getClientAtIndex(int index)
+
+    uint8_t *EspNowDispatcherService::getClientAtIndex(int index)
     {
         return clients[index].mac;
     }
@@ -151,9 +151,11 @@ namespace services
     {
         if (msg.msgType == MSG_ANNOUNCE)
         {
-            addClient(msg.mac);
+            bool added = addClient(msg.mac);
             updateLastSeen(msg.mac);
             Serial.println("Dispatcher received ANNOUNCE");
+            if (added)
+                sendTo(msg.mac, "ACK");
         }
         else if (msg.msgType == MSG_DATA)
         {

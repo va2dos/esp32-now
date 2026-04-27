@@ -1,3 +1,5 @@
+#include <esp_wifi.h>
+#include <esp_now.h>
 #include "services/esp_now_service.h"
 #include "utils/utils.h"
 
@@ -20,6 +22,9 @@ namespace services
             return false;
         }
 
+        esp_wifi_set_promiscuous(true);
+        esp_wifi_set_channel(6, WIFI_SECOND_CHAN_NONE);  // choose your channel
+        esp_wifi_set_promiscuous(false);
         if (esp_now_init() != ESP_OK)
         {
             Serial.println("ESP-NOW init failed");

@@ -36,7 +36,7 @@ namespace services
         int clientCount;
 
         int findClientIndex(const uint8_t *mac) const;
-        void addClient(const uint8_t *mac);
+        bool addClient(const uint8_t *mac);
         void updateLastSeen(const uint8_t *mac);
         void pruneStale();
     };

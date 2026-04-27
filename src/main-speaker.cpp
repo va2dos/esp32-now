@@ -25,7 +25,14 @@ void handleEspNowMessage(const services::EspNowMessage &msg)
 {
     Serial.println("Entering handleEspNowMessage...");
 
-    if (msg.msgType != services::MSG_DATA)
+    if (msg.msgType == services::MSG_ANNOUNCE)
+    {
+        // Connected
+        lightningModule.setLightsOn(false);
+        stateController.setState(services::SystemState::Idle);
+        return;
+    }
+    else if (msg.msgType != services::MSG_DATA)
     {
         Serial.println("Received message of unknown type");
         return;
@@ -34,6 +41,14 @@ void handleEspNowMessage(const services::EspNowMessage &msg)
     Serial.print("Received ESP-NOW message: ");
     Serial.println(msg.text);
     incomingMsg = msg; // Store the incoming message for processing in the main loop if needed
+}
+
+void reset()
+{
+    incomingMsg.reset();
+    lightningModule.setLightsOn(false);
+    trackInfo = {}; // Clear track info
+    lightningModule.setLightMode(module::LightEffect::Loop);
 }
 
 void setup()
@@ -46,6 +61,8 @@ void setup()
 
     // LED Setup
     lightningModule.begin();
+    lightningModule.setLightsOn(true, module::ColorIndex::Red);
+    lightningModule.setLightMode(module::LightEffect::Pulse);
 
     // Sound Setup
     soundController.begin();
@@ -73,16 +90,15 @@ void setup()
     stateController.onPlayingEnter = []()
     {
         Serial.println("State -> Playing");
-        lightningModule.setLightsOn(true);
+        // TODO setup color based on Scenario
+        lightningModule.setLightsOn(true, module::ColorIndex::White);
 
-        Serial.print("Track info -> Folder:");                
+        Serial.print("Track info -> Folder:");
         Serial.print(trackInfo.folder);
         Serial.print(", File: ");
         Serial.print(trackInfo.file);
         soundController.playTrack(trackInfo.folder, trackInfo.file);
     };
-
-    stateController.setState(services::SystemState::Idle);
 
     Serial.print("Setup complete.");
 }
@@ -107,7 +123,7 @@ void loop()
         auto message = incomingMsg.value().text;
         Serial.println("Processing message: " + String(message));
 
-        incomingMsg.reset(); // Clear the message after processing
+        incomingMsg.reset();
 
         if (strcmp(message, esp_commands::STOP_COMMAND) == 0)
         {
@@ -121,7 +137,7 @@ void loop()
             services::TrackParseError trackResult = trackService.parsePlayCommand(message, trackInfo);
             if (trackResult == services::TrackParseError::None)
             {
-                Serial.print("Track info -> Folder:");                
+                Serial.print("Track info -> Folder:");
                 Serial.print(trackInfo.folder);
                 Serial.print(", File: ");
                 Serial.print(trackInfo.file);
