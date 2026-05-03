@@ -21,15 +21,20 @@ services::TrackInfo trackInfo;
 
 std::optional<services::EspNowMessage> incomingMsg; // Buffer for incoming ESP-NOW messages
 
+double lastAckTime = 0;
+
 void handleEspNowMessage(const services::EspNowMessage &msg)
 {
     Serial.println("Entering handleEspNowMessage...");
 
     if (msg.msgType == services::MSG_ACK)
     {
-        // Connected
-        lightningModule.setLightsOn(false);
-        stateController.setState(services::SystemState::Idle);
+        lastAckTime = utils::now_ms();
+        if(stateController.getState() == services::SystemState::Setup) {
+            // Connected
+            lightningModule.setLightsOn(false);
+            stateController.setState(services::SystemState::Idle);
+        }
         return;
     }
     else if (msg.msgType != services::MSG_DATA)
@@ -45,15 +50,28 @@ void handleEspNowMessage(const services::EspNowMessage &msg)
 
 void reset()
 {
+    trackInfo = {}; // Clear track info
     incomingMsg.reset();
     lightningModule.setLightsOn(false);
-    trackInfo = {}; // Clear track info
     lightningModule.setLightMode(module::LightEffect::Loop);
+}
+
+void enterSetupState()
+{
+    Serial.println("Entering Setup state...");
+    trackInfo = {}; // Clear track info
+    incomingMsg.reset();
+    soundController.stop();
+    lightningModule.setLightsOn(true, module::ColorIndex::Red);
+    lightningModule.setLightMode(module::LightEffect::Pulse);
+    stateController.setState(services::SystemState::Setup);
 }
 
 void setup()
 {
     Serial.begin(115200);
+
+    lastAckTime = utils::now_ms();
 
     Serial.println("Starting Speaker Firmware...");
 
@@ -61,8 +79,6 @@ void setup()
 
     // LED Setup
     lightningModule.begin();
-    lightningModule.setLightsOn(true, module::ColorIndex::Red);
-    lightningModule.setLightMode(module::LightEffect::Pulse);
 
     // Sound Setup
     soundController.begin();
@@ -72,6 +88,8 @@ void setup()
         Serial.println("Error initializing ESP-NOW");
         return;
     }
+
+    enterSetupState();
 
     // Register callback
     espNowService.onMessage = [](const services::EspNowMessage &msg)
@@ -112,10 +130,17 @@ void loop()
     {
         if (stateController.getElapsedTime() >= trackInfo.duration)
         {
-            Serial.println("Track duration ended, stopping music and resetting state.");
+            Serial.println("Trac(k duration ended, stopping music and resetting state.");
             trackInfo = {}; // Clear track info
             stateController.setState(services::SystemState::Idle);
         }
+    }
+
+    // Check for controller timeout: no ACK for 3 consecutive announcements (10 seconds)
+    if (stateController.getState() != services::SystemState::Setup && utils::now_ms() - lastAckTime > 10000)
+    {
+        Serial.println("No ACK received for 3 consecutive announcements, resetting to Setup");
+        enterSetupState();
     }
 
     if (incomingMsg.has_value())

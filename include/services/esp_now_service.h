@@ -13,7 +13,7 @@ namespace services
     {
         MSG_ANNOUNCE = 1,
         MSG_DATA = 2,
-        MSG_ACK
+        MSG_ACK = 3,
     };
 
     typedef struct EspNowMessage

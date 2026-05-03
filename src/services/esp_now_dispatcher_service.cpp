@@ -164,11 +164,10 @@ namespace services
             bool added = addClient(msg.mac);
             updateLastSeen(msg.mac);
             Serial.println("Dispatcher received ANNOUNCE");
-            if (added) {
-                Serial.print("New client added, sending ACK to:");
-                Serial.println(utils::macToStr(msg.mac));
-                sendACK(msg.mac);
-            }
+
+            Serial.print("New client added, sending ACK to:");
+            Serial.println(utils::macToStr(msg.mac));
+            sendACK(msg.mac);
         }
         else if (msg.msgType == MSG_DATA)
         {
