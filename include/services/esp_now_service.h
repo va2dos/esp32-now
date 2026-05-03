@@ -12,7 +12,8 @@ namespace services
     enum MsgType
     {
         MSG_ANNOUNCE = 1,
-        MSG_DATA = 2
+        MSG_DATA = 2,
+        MSG_ACK
     };
 
     typedef struct EspNowMessage

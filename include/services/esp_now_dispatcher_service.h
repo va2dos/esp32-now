@@ -21,6 +21,7 @@ namespace services
 
         void broadcast(const char *text);
         void sendTo(const uint8_t *mac, const char *text);
+        void sendACK(const uint8_t *mac);
 
         int countClient() const;
         uint8_t* getClientAtIndex(int index);

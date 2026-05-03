@@ -55,10 +55,7 @@ namespace services
 
     void EspNowClientService::handleMessage(const uint8_t *mac, const EspNowMessage &msg)
     {
-        if (msg.msgType != MSG_DATA)
-            return;
-
-        Serial.print("Client received MSG_DATA from dispatcher: ");
+        Serial.print("Client received message from dispatcher: ");
         Serial.println(msg.text);
 
         if (onMessage)

@@ -25,7 +25,7 @@ void handleEspNowMessage(const services::EspNowMessage &msg)
 {
     Serial.println("Entering handleEspNowMessage...");
 
-    if (msg.msgType == services::MSG_ANNOUNCE)
+    if (msg.msgType == services::MSG_ACK)
     {
         // Connected
         lightningModule.setLightsOn(false);

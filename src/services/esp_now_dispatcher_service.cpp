@@ -135,6 +135,16 @@ namespace services
         Serial.println(text);
     }
 
+    void EspNowDispatcherService::sendACK(const uint8_t *mac)
+    {
+        EspNowMessage msg{};
+        msg.msgType = MSG_ACK;
+        WiFi.macAddress(msg.mac);
+        msg.text[0] = '\0';
+
+        sendRaw(mac, msg);
+    }
+
     int EspNowDispatcherService::countClient() const
     {
         return clientCount;
@@ -154,8 +164,11 @@ namespace services
             bool added = addClient(msg.mac);
             updateLastSeen(msg.mac);
             Serial.println("Dispatcher received ANNOUNCE");
-            if (added)
-                sendTo(msg.mac, "ACK");
+            if (added) {
+                Serial.print("New client added, sending ACK to:");
+                Serial.println(utils::macToStr(msg.mac));
+                sendACK(msg.mac);
+            }
         }
         else if (msg.msgType == MSG_DATA)
         {

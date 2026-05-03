@@ -67,7 +67,7 @@ void setup()
     {
         Serial.println("State -> Idle");
         espNowService.broadcast("STOP");
-        lightningModule.setLightsOn(true, module::LightningModule::ColorIndex::White);
+        lightningModule.setLightsOn(true, module::ColorIndex::White);
     };
 
     stateController.onRfidDetected = []()
@@ -80,7 +80,7 @@ void setup()
     {
         Serial.println("State -> Playing");
         soundController.playTrack(trackInfo.folder, trackInfo.file);
-        lightningModule.setLightsOn(true, module::LightningModule::ColorIndex::Purple);
+        lightningModule.setLightsOn(true, module::ColorIndex::Purple);
     };
 
     stateController.onRemotePlayingEnter = []()
@@ -93,7 +93,7 @@ void setup()
         if (currentScenario != services::ScenarioType::None)
         {
             scenarioService.executeScenario(currentScenario);
-            lightningModule.setLightsOn(true, module::LightningModule::ColorIndex::RemotePlay);
+            lightningModule.setLightsOn(true, module::ColorIndex::RemotePlay);
         }
         else
         {
@@ -107,7 +107,7 @@ void setup()
         Serial.println("Remote track ended, resetting state.");
 
         espNowService.broadcast("STOP");
-        lightningModule.setLightsOn(false, module::LightningModule::ColorIndex::White);
+        lightningModule.setLightsOn(false, module::ColorIndex::White);
         stateController.setState(services::SystemState::Idle);
     };
 
@@ -125,7 +125,7 @@ void loop()
     if (buttonService.isOn(services::ButtonIndex::BTN_ON_OFF) && stateController.getState() == services::SystemState::Off)
     {
         Serial.println("On/Off button pressed, switching to Idle state");
-        lightningModule.setLightsOn(true, module::LightningModule::ColorIndex::White);
+        lightningModule.setLightsOn(true, module::ColorIndex::White);
         stateController.setState(services::SystemState::Idle);
     }
     else if (!buttonService.isOn(services::ButtonIndex::BTN_ON_OFF) && stateController.getState() != services::SystemState::Off)
